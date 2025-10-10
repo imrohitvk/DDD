@@ -1,0 +1,56 @@
+.dashboard-root {
+  padding: 24px;
+  box-sizing: border-box;
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  color: #e6eef8;
+  background: linear-gradient(180deg, #0b1220 0%, #071023 100%);
+  min-height: 100vh;
+}
+
+/* ensure the document root is full height and no default white margin */
+html, body, #root {
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(180deg, #0b1220 0%, #071023 100%);
+  box-sizing: border-box;
+}
+.dashboard-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+}
+.tabs {
+  margin-top: 12px;
+  display:flex;
+  gap:8px;
+}
+.tab-btn {
+  background: transparent;
+  color: #9fb0c8;
+  border: 1px solid transparent;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.tab-btn.active {
+  color: #071023;
+  background: linear-gradient(90deg,#8b5cf6,#06b6d4);
+  font-weight: 700;
+}
+.dashboard-title { font-size: 24px; font-weight: 700; color:#e6eef8 }
+.badge { background: linear-gradient(90deg,#8b5cf6,#06b6d4); color: white; padding:6px 10px; border-radius:999px; font-weight:600 }
+.cards { display:grid; grid-template-columns: repeat(auto-fit,minmax(350px,1fr)); gap:16px; margin-top:18px; grid-auto-rows: auto; align-items: start }
+.card { background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); border-radius:12px; padding:12px; box-shadow: 0 8px 28px rgba(2,6,23,0.6); display:flex; flex-direction:column; }
+.card h3 { margin:6px 0 12px 0; font-size:16px; color:#dbeafe }
+.controls { margin-top:12px; display:flex; gap:12px; align-items:center }
+.table-wrap { max-height:350px; overflow:auto; border-radius:8px; }
+.plot-fill { flex: 0 0 320px; height: 320px; display:flex; overflow: hidden }
+.plot-fill > div { flex:1; height: 100%; width: 100%; overflow: hidden }
+table.dashboard-table { width:100%; border-collapse:collapse; font-size:13px; color:#e6eef8 }
+table.dashboard-table th, table.dashboard-table td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.04) }
+table.dashboard-table tr:hover { background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)) }
+.small-muted { color:#9fb0c8; font-size:13px }
+.footer-note { margin-top:14px; color:#9fb0c8; font-size:13px }

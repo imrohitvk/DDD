@@ -1,0 +1,9 @@
+node_modules/
+.env
+.DS_Store
+/dist
+/build
+/frontend/node_modules/
+/backend/node_modules/
+/Tableau.csv
+.csv
