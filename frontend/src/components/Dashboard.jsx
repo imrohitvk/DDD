@@ -3,6 +3,8 @@ import axios from 'axios'
 import Papa from 'papaparse'
 import Plot from 'react-plotly.js'
 import './Dashboard.css'
+import SectionWiseLeaderboard from './SectionWiseLeaderboard'
+import QuizWiseLeaderboard from './QuizWiseLeaderboard'
 
 function numeric(v) {
   const n = parseFloat(v)
@@ -85,12 +87,13 @@ export default function Dashboard() {
     const map = {}
     quizNumbers.forEach(n => { map[n] = { sum:0, cnt:0, attemptsSum:0, attemptsCnt:0, scores:[] } })
     longData.forEach(d => {
-      if (d.score !== null && d.score !== undefined) {
-        map[d.quiz].sum += d.score
-        map[d.quiz].cnt += 1
-        map[d.quiz].scores.push(d.score)
-      }
-      if (d.attempts !== null && d.attempts !== undefined) {
+      // Only include data if the student actually attempted the quiz (attempts > 0)
+      if (d.attempts !== null && d.attempts > 0) {
+        if (d.score !== null && d.score !== undefined) {
+          map[d.quiz].sum += d.score
+          map[d.quiz].cnt += 1
+          map[d.quiz].scores.push(d.score)
+        }
         map[d.quiz].attemptsSum += d.attempts
         map[d.quiz].attemptsCnt += 1
       }
@@ -215,6 +218,8 @@ export default function Dashboard() {
                 <div className="footer-note">Key statistical insights for Quiz {selectedQuiz}.</div>
               </div>
 
+              <QuizWiseLeaderboard longData={longData} selectedQuiz={selectedQuiz} />
+
               <div className="card" style={{ marginBottom: '20px', background: 'linear-gradient(135deg, rgba(91, 33, 182, 0.1), rgba(139, 92, 246, 0.1))' }}>
                 <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: '700', color: '#dbeafe' }}>Detailed Analytics — Quiz {selectedQuiz}</h3>
                 <div>
@@ -260,8 +265,7 @@ export default function Dashboard() {
                           <div style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>
                             <div><strong>Max Attempts:</strong> {attempts.length > 0 ? Math.max(...attempts) : 'N/A'}</div>
                             <div><strong>Min Attempts:</strong> {attempts.length > 0 ? Math.min(...attempts) : 'N/A'}</div>
-                            <div><strong>Single Attempt:</strong> {attempts.length > 0 ? ((attempts.filter(a => a === 1).length / attempts.length) * 100).toFixed(1) : 0}%</div>
-                            <div><strong>Multiple Attempts:</strong> {attempts.length > 0 ? ((attempts.filter(a => a > 1).length / attempts.length) * 100).toFixed(1) : 0}%</div>
+
                             <div><strong>Persistent Learners:</strong> {attempts.length > 0 ? attempts.filter(a => a >= 3).length : 0} (≥3 attempts)</div>
                           </div>
                         </div>
@@ -280,84 +284,73 @@ export default function Dashboard() {
                     const attempts = longData.filter(d => d.quiz === selectedQuiz && d.attempts !== null).map(d => d.attempts);
                     const badges = [
                       {
-                        label: 'Perfect Scores',
+                        label: 'Perfect Scorers',
                         count: scores.filter(s => s === 100).length,
-                        icon: '🎯',
+                        icon: '✅',
                         color: '#10b981',
-                        bgColor: 'rgba(16, 185, 129, 0.15)'
+                        bgColor: 'rgba(16, 185, 129, 0.15)',
+                        tooltip: 'Students who scored 100% (answered both questions correctly) and can progress to the next quiz.'
                       },
                       {
-                        label: 'First Attempt Success',
-                        count: longData.filter(d => d.quiz === selectedQuiz && d.attempts === 1 && d.score >= 70).length,
+                        label: 'Ace on First Shot',
+                        count: longData.filter(d => d.quiz === selectedQuiz && d.attempts === 1 && d.score === 100).length,
                         icon: '⚡',
                         color: '#3b82f6',
-                        bgColor: 'rgba(59, 130, 246, 0.15)'
+                        bgColor: 'rgba(59, 130, 246, 0.15)',
+                        tooltip: 'Students who achieved 100% on their first attempt, showing excellent preparation and understanding.'
                       },
                       {
-                        label: 'High Achievers',
-                        count: scores.filter(s => s >= 90).length,
-                        icon: '🌟',
-                        color: '#f59e0b',
-                        bgColor: 'rgba(245, 158, 11, 0.15)'
-                      },
-                      {
-                        label: 'Persistent Learners',
-                        count: attempts.filter(a => a >= 3).length,
-                        icon: '💪',
-                        color: '#8b5cf6',
-                        bgColor: 'rgba(139, 92, 246, 0.15)'
-                      },
-                      {
-                        label: 'Quick Finishers',
-                        count: attempts.filter(a => a === 1).length,
-                        icon: '🚀',
-                        color: '#06b6d4',
-                        bgColor: 'rgba(6, 182, 212, 0.15)'
-                      },
-                      {
-                        label: 'Improvement Needed',
-                        count: scores.filter(s => s < 50).length,
-                        icon: '📚',
+                        label: 'Struggling Students',
+                        count: longData.filter(d => d.quiz === selectedQuiz && d.attempts > 0 && d.score !== null && d.score < 100).length,
+                        icon: '�',
                         color: '#ef4444',
-                        bgColor: 'rgba(239, 68, 68, 0.15)'
+                        bgColor: 'rgba(239, 68, 68, 0.15)',
+                        tooltip: 'Students who scored 0% (could not answer either question correctly) and are blocked from next quiz.'
+                      },
+
+                      {
+                        label: 'Complete Misses',
+                        count: scores.filter(s => s === 0).length,
+                        icon: '❌',
+                        color: '#ef4444',
+                        bgColor: 'rgba(239, 68, 68, 0.15)',
+                        tooltip: 'Students who scored 0% (could not answer either question correctly) and are blocked from next quiz.'
                       },
                       {
-                        label: 'Above Average',
-                        count: (() => {
-                          const avg = scores.length > 0 ? scores.reduce((a,b) => a+b, 0) / scores.length : 0;
-                          return scores.filter(s => s > avg).length;
-                        })(),
-                        icon: '📊',
-                        color: '#06b6d4',
-                        bgColor: 'rgba(6, 182, 212, 0.15)'
-                      },
-                      {
-                        label: 'Multiple Attempts',
-                        count: attempts.filter(a => a > 1).length,
-                        icon: '🔄',
-                        color: '#f97316',
-                        bgColor: 'rgba(249, 115, 22, 0.15)'
-                      },
-                      {
-                        label: 'Grade A Students',
-                        count: scores.filter(s => s >= 90).length,
-                        icon: '🅰️',
-                        color: '#22c55e',
-                        bgColor: 'rgba(34, 197, 94, 0.15)'
+                        label: 'Progress Halted',
+                        count: scores.filter(s => s < 100).length,
+                        icon: '�',
+                        color: '#dc2626',
+                        bgColor: 'rgba(220, 38, 38, 0.15)',
+                        tooltip: 'Students who scored less than 100% and cannot progress to the next quiz in the sequence.'
                       }
                     ];
                     
                     return badges.map((badge, idx) => (
-                      <div key={idx} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        background: badge.bgColor,
-                        border: `1px solid ${badge.color}30`,
-                        borderRadius: '20px',
-                        padding: '8px 16px',
-                        minWidth: '120px'
-                      }}>
+                      <div 
+                        key={idx} 
+                        title={badge.tooltip}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          background: badge.bgColor,
+                          border: `1px solid ${badge.color}30`,
+                          borderRadius: '20px',
+                          padding: '8px 16px',
+                          minWidth: '120px',
+                          cursor: 'help',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = `0 4px 12px ${badge.color}20`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0px)';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
+                      >
                         <span style={{ fontSize: '1.2rem' }}>{badge.icon}</span>
                         <div>
                           <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: badge.color }}>{badge.count}</div>
@@ -378,12 +371,17 @@ export default function Dashboard() {
                 <h3 style={{ margin: '0 0 16px 0', fontSize: '1.25rem', fontWeight: '700', color: '#dbeafe' }}>Section Overview — All Quizzes</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px' }}>
                 {(() => {
-                  const allScores = longData.filter(d => d.score !== null).map(d => d.score);
-                  const allAttempts = longData.filter(d => d.attempts !== null).map(d => d.attempts);
+                  // Only count records where student actually attempted the quiz (attempts > 0)
+                  const actualSubmissions = longData.filter(d => d.attempts !== null && d.attempts > 0);
+                  const allScores = actualSubmissions.map(d => d.score).filter(s => s !== null);
+                  const allAttempts = actualSubmissions.map(d => d.attempts);
+                  const totalExpectedSubmissions = dataRows.length * quizNumbers.length;
+                  const completionRate = totalExpectedSubmissions > 0 ? ((actualSubmissions.length / totalExpectedSubmissions) * 100).toFixed(1) : 0;
                   const stats = {
                     'Total Quizzes': quizNumbers.length,
                     'Total Participants': dataRows.length,
-                    'Total Submissions': allScores.length,
+                    'Total Submissions': `${actualSubmissions.length} / ${totalExpectedSubmissions}`,
+                    'Completion Rate': `${completionRate}%`,
                     'Overall Avg Score': allScores.length > 0 ? `${(allScores.reduce((a,b) => a+b, 0) / allScores.length).toFixed(1)}%` : 'N/A',
                     'Overall Pass Rate': allScores.length > 0 ? `${((allScores.filter(s => s >= 70).length / allScores.length) * 100).toFixed(1)}%` : 'N/A',
                     'Avg Attempts': allAttempts.length > 0 ? (allAttempts.reduce((a,b) => a+b, 0) / allAttempts.length).toFixed(1) : 'N/A'
@@ -404,110 +402,117 @@ export default function Dashboard() {
               </div>
                 <div className="footer-note">Comprehensive overview of all quiz performance across the section.</div>
               </div>
+              
+              {/* SECTION-WISE LEADERBOARD - Separate Component for Section Champions */}
+              <SectionWiseLeaderboard 
+                longData={longData} 
+                quizNumbers={quizNumbers} 
+              />
 
               <div className="card" style={{ marginBottom: '20px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1))' }}>
                 <h3 style={{ margin: '0 0 16px 0', fontSize: '1.25rem', fontWeight: '700', color: '#dbeafe' }}>Section Achievement Badges</h3>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center' }}>
                   {(() => {
-                    const allScores = longData.filter(d => d.score !== null).map(d => d.score);
-                    const allAttempts = longData.filter(d => d.attempts !== null).map(d => d.attempts);
+                    // Only count actual submissions (attempts > 0), not records with 0 attempts
+                    const actualSubmissions = longData.filter(d => d.attempts !== null && d.attempts > 0);
+                    const allScores = actualSubmissions.map(d => d.score).filter(s => s !== null);
+                    const allAttempts = actualSubmissions.map(d => d.attempts);
                     const studentStats = {};
-                    longData.forEach(d => {
+                    // Build student stats only from actual submissions
+                    actualSubmissions.forEach(d => {
                       const key = `${d.name}-${d.email}`;
                       if (!studentStats[key]) {
                         studentStats[key] = { scores: [], attempts: [] };
                       }
                       if (d.score !== null) studentStats[key].scores.push(d.score);
-                      if (d.attempts !== null) studentStats[key].attempts.push(d.attempts);
+                      studentStats[key].attempts.push(d.attempts);
                     });
                     
                     const badges = [
                       {
-                        label: 'Perfect Scores',
+                        label: 'Perfect Submissions',
                         count: allScores.filter(s => s === 100).length,
-                        icon: '🏆',
+                        icon: '✅',
                         color: '#10b981',
-                        bgColor: 'rgba(16, 185, 129, 0.15)'
+                        bgColor: 'rgba(16, 185, 129, 0.15)',
+                        tooltip: 'Quiz submissions with 100% score (answered both questions correctly). Only these allow progression to next quiz in the sequential system.'
                       },
                       {
-                        label: 'Consistent Performers',
+                        label: 'Multi-Quiz Masters',
                         count: Object.values(studentStats).filter(s => {
-                          if (s.scores.length === 0) return false;
-                          const avg = s.scores.reduce((a,b) => a+b, 0) / s.scores.length;
-                          return avg >= 80 && s.scores.length >= 3;
+                          const passedQuizzes = s.scores.filter(score => score === 100).length;
+                          return passedQuizzes >= 3;
                         }).length,
-                        icon: '⭐',
-                        color: '#f59e0b',
-                        bgColor: 'rgba(245, 158, 11, 0.15)'
+                        icon: '🚀',
+                        color: '#3b82f6',
+                        bgColor: 'rgba(59, 130, 246, 0.15)',
+                        tooltip: 'Students who successfully passed (100% score) at least 3 quizzes, demonstrating ability to progress through the sequential system.'
                       },
                       {
-                        label: 'Quiz Masters',
+                        label: 'Section Champions',
                         count: Object.values(studentStats).filter(s => {
-                          return s.scores.length >= quizNumbers.length * 0.8 && s.scores.reduce((a,b) => a+b, 0) / s.scores.length >= 85;
+                          const passedQuizzes = s.scores.filter(score => score === 100).length;
+                          return passedQuizzes === quizNumbers.length;
                         }).length,
                         icon: '🎓',
                         color: '#8b5cf6',
-                        bgColor: 'rgba(139, 92, 246, 0.15)'
+                        bgColor: 'rgba(139, 92, 246, 0.15)',
+                        tooltip: 'Students who completed ALL quizzes in the section with 100% scores, achieving full mastery of the course content.'
                       },
                       {
-                        label: 'First Try Champions',
-                        count: allAttempts.filter(a => a === 1).length,
+                        label: 'One-Shot Winners',
+                        count: longData.filter(d => d.attempts === 1 && d.score === 100).length,
                         icon: '⚡',
-                        color: '#3b82f6',
-                        bgColor: 'rgba(59, 130, 246, 0.15)'
+                        color: '#f59e0b',
+                        bgColor: 'rgba(245, 158, 11, 0.15)',
+                        tooltip: 'Quiz passes (100%) achieved on first attempt. Shows strong preparation and immediate understanding of concepts.'
                       },
-                      {
-                        label: 'Active Participants',
-                        count: Object.values(studentStats).filter(s => s.scores.length >= Math.ceil(quizNumbers.length * 0.7)).length,
-                        icon: '🎯',
-                        color: '#06b6d4',
-                        bgColor: 'rgba(6, 182, 212, 0.15)'
-                      },
-                      {
-                        label: 'Most Improved',
-                        count: Object.values(studentStats).filter(s => {
-                          if (s.scores.length < 3) return false;
-                          const firstHalf = s.scores.slice(0, Math.ceil(s.scores.length/2));
-                          const secondHalf = s.scores.slice(Math.ceil(s.scores.length/2));
-                          const firstAvg = firstHalf.reduce((a,b) => a+b, 0) / firstHalf.length;
-                          const secondAvg = secondHalf.reduce((a,b) => a+b, 0) / secondHalf.length;
-                          return secondAvg - firstAvg >= 15;
-                        }).length,
-                        icon: '📈',
-                        color: '#84cc16',
-                        bgColor: 'rgba(132, 204, 22, 0.15)'
-                      },
-                      {
-                        label: 'Challenge Seekers',
-                        count: allAttempts.filter(a => a >= 3).length,
-                        icon: '🔥',
-                        color: '#f97316',
-                        bgColor: 'rgba(249, 115, 22, 0.15)'
-                      },
+
                       {
                         label: 'Need Support',
                         count: Object.values(studentStats).filter(s => {
                           if (s.scores.length === 0) return false;
-                          const avg = s.scores.reduce((a,b) => a+b, 0) / s.scores.length;
-                          return avg < 50;
+                          // Students who have attempted quizzes but never achieved 100% (can't progress in binary system)
+                          const passedQuizzes = s.scores.filter(score => score === 100).length;
+                          // Any student with attempts but no perfect scores needs support in binary grading
+                          return passedQuizzes === 0 && s.scores.length >= 1;
                         }).length,
-                        icon: '📚',
+                        icon: '�',
                         color: '#ef4444',
-                        bgColor: 'rgba(239, 68, 68, 0.15)'
+                        bgColor: 'rgba(239, 68, 68, 0.15)',
+                        tooltip: 'Students who have attempted multiple quizzes or made multiple attempts but never achieved 100% scores needed for progression in the binary grading system.'
                       }
                     ];
                     
                     return badges.map((badge, idx) => (
-                      <div key={idx} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        background: badge.bgColor,
-                        border: `1px solid ${badge.color}30`,
-                        borderRadius: '20px',
-                        padding: '8px 16px',
-                        minWidth: '130px'
-                      }}>
+                      <div 
+                        key={idx} 
+                        title={badge.tooltip}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          background: badge.bgColor,
+                          border: `1px solid ${badge.color}30`,
+                          borderRadius: '20px',
+                          padding: '8px 16px',
+                          minWidth: '130px',
+                          cursor: 'help',
+                          transition: 'all 0.2s ease',
+                          ':hover': {
+                            transform: 'translateY(-2px)',
+                            boxShadow: `0 4px 12px ${badge.color}20`
+                          }
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = `0 4px 12px ${badge.color}20`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0px)';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
+                      >
                         <span style={{ fontSize: '1.2rem' }}>{badge.icon}</span>
                         <div>
                           <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: badge.color }}>{badge.count}</div>
@@ -633,39 +638,6 @@ export default function Dashboard() {
                 </div>
 
                 <div className="card">
-                  <h3>Overall score distribution across all quizzes</h3>
-                  <div className="plot-fill">
-                    <div>
-                      <Plot
-                        data={[{
-                          x: longData.filter(d => d.score !== null).map(d => d.score),
-                          type: 'histogram',
-                          marker: { 
-                            color: '#06b6d4', 
-                            line: { color: '#0891b2', width: 1 }
-                          },
-                          nbinsx: 15,
-                          hovertemplate: 'Score Range: %{x}<br>Count: %{y}<extra></extra>'
-                        }]}
-                        layout={{ 
-                          autosize: true, 
-                          xaxis: { title: 'Score (%)', color: '#e6eef8', gridcolor: 'rgba(255,255,255,0.06)' }, 
-                          yaxis: { title: 'Number of Submissions', color: '#e6eef8', gridcolor: 'rgba(255,255,255,0.06)' },
-                          paper_bgcolor: 'rgba(0,0,0,0)', 
-                          plot_bgcolor: 'rgba(0,0,0,0)', 
-                          margin: { t: 10, b: 50, l: 60, r: 20 }, 
-                          font: { color: '#e6eef8' },
-                          height: 280
-                        }}
-                        useResizeHandler={true}
-                        style={{ width: '100%', height: '100%' }}
-                      />
-                    </div>
-                  </div>
-                  <div className="footer-note">Distribution of all scores across all quiz submissions in the section.</div>
-                </div>
-
-                <div className="card">
                   <h3>Quiz performance heatmap</h3>
                   <div className="plot-fill">
                     <div>
@@ -714,7 +686,7 @@ export default function Dashboard() {
                         data={[{
                           x: avgByQuiz.map(r => `Quiz ${r.quiz}`),
                           y: avgByQuiz.map(r => {
-                            const quizData = longData.filter(d => d.quiz === r.quiz && d.score !== null);
+                            const quizData = longData.filter(d => d.quiz === r.quiz && d.score === 100);
                             return quizData.length;
                           }),
                           type: 'bar',
@@ -722,12 +694,12 @@ export default function Dashboard() {
                             color: '#06b6d4',
                             line: { color: '#0891b2', width: 1 }
                           },
-                          hovertemplate: '%{x}<br>Participants: %{y}<extra></extra>'
+                          hovertemplate: '%{x}<br>Perfect Scores: %{y}<extra></extra>'
                         }]}
                         layout={{ 
                           autosize: true, 
                           xaxis: { title: 'Quiz', color: '#e6eef8' }, 
-                          yaxis: { title: 'Number of Participants', color: '#e6eef8', gridcolor: 'rgba(255,255,255,0.06)' },
+                          yaxis: { title: 'Perfect Scores (100%)', color: '#e6eef8', gridcolor: 'rgba(255,255,255,0.06)' },
                           paper_bgcolor: 'rgba(0,0,0,0)', 
                           plot_bgcolor: 'rgba(0,0,0,0)', 
                           margin: { t: 10, b: 50, l: 60, r: 20 }, 
@@ -739,7 +711,7 @@ export default function Dashboard() {
                       />
                     </div>
                   </div>
-                  <div className="footer-note">Participation rates showing how many students completed each quiz.</div>
+                  <div className="footer-note">Number of students who achieved perfect scores (100%) in each quiz.</div>
                 </div>
 
                 <div className="card">
@@ -781,56 +753,7 @@ export default function Dashboard() {
                   <div className="footer-note">Overall grade distribution across all quiz submissions in the section.</div>
                 </div>
 
-                <div className="card">
-                  <h3>Student engagement patterns</h3>
-                  <div className="plot-fill">
-                    <div>
-                      <Plot
-                        data={[
-                          {
-                            x: avgByQuiz.map(r => `Quiz ${r.quiz}`),
-                            y: avgByQuiz.map(r => {
-                              const singleAttempt = longData.filter(d => d.quiz === r.quiz && d.attempts === 1).length;
-                              const total = longData.filter(d => d.quiz === r.quiz && d.attempts !== null).length;
-                              return total > 0 ? (singleAttempt / total) * 100 : 0;
-                            }),
-                            type: 'bar',
-                            name: 'Single Attempt',
-                            marker: { color: '#10b981' },
-                            hovertemplate: '%{x}<br>Single Attempt: %{y:.1f}%<extra></extra>'
-                          },
-                          {
-                            x: avgByQuiz.map(r => `Quiz ${r.quiz}`),
-                            y: avgByQuiz.map(r => {
-                              const multipleAttempt = longData.filter(d => d.quiz === r.quiz && d.attempts > 1).length;
-                              const total = longData.filter(d => d.quiz === r.quiz && d.attempts !== null).length;
-                              return total > 0 ? (multipleAttempt / total) * 100 : 0;
-                            }),
-                            type: 'bar',
-                            name: 'Multiple Attempts',
-                            marker: { color: '#f59e0b' },
-                            hovertemplate: '%{x}<br>Multiple Attempts: %{y:.1f}%<extra></extra>'
-                          }
-                        ]}
-                        layout={{ 
-                          autosize: true, 
-                          xaxis: { title: 'Quiz', color: '#e6eef8' }, 
-                          yaxis: { title: 'Percentage of Students', color: '#e6eef8', gridcolor: 'rgba(255,255,255,0.06)' },
-                          paper_bgcolor: 'rgba(0,0,0,0)', 
-                          plot_bgcolor: 'rgba(0,0,0,0)', 
-                          margin: { t: 10, b: 50, l: 60, r: 20 }, 
-                          font: { color: '#e6eef8' },
-                          height: 280,
-                          barmode: 'stack',
-                          legend: { font: { color: '#e6eef8' }, orientation: 'h', y: 1.02 }
-                        }}
-                        useResizeHandler={true}
-                        style={{ width: '100%', height: '100%' }}
-                      />
-                    </div>
-                  </div>
-                  <div className="footer-note">Stacked bar chart showing student engagement patterns across quizzes.</div>
-                </div>
+
 
                 <div className="card">
                   <h3>Performance consistency analysis</h3>
@@ -937,66 +860,7 @@ export default function Dashboard() {
                   <div className="footer-note">Dual-axis chart showing learning progression with average scores and pass rates over time.</div>
                 </div>
 
-                <div className="card">
-                  <h3>Top performing students across all quizzes</h3>
-                  <div className="table-wrap">
-                    <table className="dashboard-table">
-                      <thead>
-                        <tr>
-                          <th>Rank</th>
-                          <th>Name</th>
-                          <th>Email</th>
-                          <th style={{ textAlign:'right' }}>Avg Score</th>
-                          <th style={{ textAlign:'right' }}>Quizzes Taken</th>
-                          <th style={{ textAlign:'right' }}>Total Attempts</th>
-                          <th style={{ textAlign:'center' }}>Overall Grade</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(() => {
-                          const studentStats = {};
-                          longData.forEach(d => {
-                            const key = `${d.name}-${d.email}`;
-                            if (!studentStats[key]) {
-                              studentStats[key] = { name: d.name, email: d.email, scores: [], attempts: [] };
-                            }
-                            if (d.score !== null) studentStats[key].scores.push(d.score);
-                            if (d.attempts !== null) studentStats[key].attempts.push(d.attempts);
-                          });
-                          
-                          const topStudents = Object.values(studentStats)
-                            .filter(s => s.scores.length > 0)
-                            .map(s => ({
-                              ...s,
-                              avgScore: s.scores.reduce((a,b) => a+b, 0) / s.scores.length,
-                              totalAttempts: s.attempts.reduce((a,b) => a+b, 0)
-                            }))
-                            .sort((a,b) => b.avgScore - a.avgScore)
-                            .slice(0, 10);
-                            
-                          return topStudents.map((s, idx) => (
-                            <tr key={idx}>
-                              <td style={{ textAlign:'center', fontWeight: 'bold', color: idx < 3 ? '#fbbf24' : '#94a3b8' }}>
-                                {idx + 1}{idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : ''}
-                              </td>
-                              <td>{s.name}</td>
-                              <td className="small-muted">{s.email}</td>
-                              <td style={{ textAlign:'right', fontWeight:700, color: s.avgScore >= 90 ? '#10b981' : s.avgScore >= 70 ? '#3b82f6' : s.avgScore >= 50 ? '#f59e0b' : '#ef4444' }}>
-                                {s.avgScore.toFixed(1)}%
-                              </td>
-                              <td style={{ textAlign:'right' }}>{s.scores.length}</td>
-                              <td style={{ textAlign:'right' }}>{s.totalAttempts}</td>
-                              <td style={{ textAlign:'center', fontWeight: 600 }}>
-                                {s.avgScore >= 90 ? '🟢 A' : s.avgScore >= 70 ? '🔵 B' : s.avgScore >= 50 ? '🟡 C' : '🔴 F'}
-                              </td>
-                            </tr>
-                          ));
-                        })()}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="footer-note">Top 10 students based on average performance across all quizzes.</div>
-                </div>
+
               </>
             )}
 
@@ -1252,53 +1116,7 @@ export default function Dashboard() {
                   <div className="footer-note">Score progression curve showing performance distribution for Quiz {selectedQuiz}.</div>
                 </div>
 
-                <div className="card">
-                  <h3>Attempt Efficiency Analysis — Quiz {selectedQuiz}</h3>
-                  <div className="plot-fill">
-                    <div>
-                      <Plot
-                        data={[
-                          {
-                            values: longData.filter(d => d.quiz === selectedQuiz && d.attempts !== null).map(d => d.attempts === 1 ? 1 : 0).reduce((acc, val, idx, arr) => val === 1 ? acc + 1 : acc, 0),
-                            labels: ['Single Attempt'],
-                            name: 'Single',
-                            type: 'pie',
-                            hole: 0.4,
-                            marker: { colors: ['#10b981'] },
-                            domain: { x: [0, 0.48] },
-                            hovertemplate: '%{label}<br>Count: %{value}<br>%{percent}<extra></extra>'
-                          },
-                          {
-                            values: [
-                              longData.filter(d => d.quiz === selectedQuiz && d.attempts === 2).length,
-                              longData.filter(d => d.quiz === selectedQuiz && d.attempts === 3).length,
-                              longData.filter(d => d.quiz === selectedQuiz && d.attempts >= 4).length
-                            ],
-                            labels: ['2 Attempts', '3 Attempts', '4+ Attempts'],
-                            type: 'pie',
-                            hole: 0.2,
-                            marker: { colors: ['#3b82f6', '#f59e0b', '#ef4444'] },
-                            domain: { x: [0.52, 1] },
-                            hovertemplate: '%{label}<br>Count: %{value}<br>%{percent}<extra></extra>'
-                          }
-                        ]}
-                        layout={{ 
-                          autosize: true,
-                          paper_bgcolor: 'rgba(0,0,0,0)', 
-                          plot_bgcolor: 'rgba(0,0,0,0)', 
-                          margin: { t: 10, b: 30, l: 20, r: 20 }, 
-                          font: { color: '#e6eef8' },
-                          height: 280,
-                          showlegend: true,
-                          legend: { font: { color: '#e6eef8' }, orientation: 'h', y: -0.1 }
-                        }}
-                        useResizeHandler={true}
-                        style={{ width: '100%', height: '100%' }}
-                      />
-                    </div>
-                  </div>
-                  <div className="footer-note">Dual pie charts showing single vs multiple attempt patterns for Quiz {selectedQuiz}.</div>
-                </div>
+
 
                 <div className="card">
                   <h3>Performance Comparison — Quiz {selectedQuiz}</h3>
@@ -1343,47 +1161,7 @@ export default function Dashboard() {
                   <div className="footer-note">Color-coded score ranges showing student distribution for Quiz {selectedQuiz}.</div>
                 </div>
 
-                <div className="card">
-                  <h3>Top performers — Quiz {selectedQuiz}</h3>
-                  <div className="table-wrap">
-                    <table className="dashboard-table">
-                      <thead>
-                        <tr>
-                          <th>Rank</th>
-                          <th>Name</th>
-                          <th>Email</th>
-                          <th style={{ textAlign:'right' }}>Score</th>
-                          <th style={{ textAlign:'right' }}>Attempts</th>
-                          <th style={{ textAlign:'center' }}>Grade</th>
-                          <th style={{ textAlign:'center' }}>Efficiency</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {topPerformers.map((p, idx) => (
-                          <tr key={idx}>
-                            <td style={{ textAlign:'center', fontWeight: 'bold', color: idx < 3 ? '#fbbf24' : '#94a3b8' }}>
-                              {idx + 1}{idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : ''}
-                            </td>
-                            <td>{p.name}</td>
-                            <td className="small-muted">{p.email}</td>
-                            <td style={{ textAlign:'right', fontWeight:700, color: p.score >= 90 ? '#10b981' : p.score >= 70 ? '#3b82f6' : p.score >= 50 ? '#f59e0b' : '#ef4444' }}>{p.score ?? '-'}</td>
-                            <td style={{ textAlign:'right' }}>{p.attempts ?? '-'}</td>
-                            <td style={{ textAlign:'center', fontWeight: 600 }}>
-                              {p.score >= 90 ? '🟢 A' : p.score >= 70 ? '🔵 B' : p.score >= 50 ? '🟡 C' : '🔴 F'}
-                            </td>
-                            <td style={{ textAlign:'center' }}>
-                              {p.attempts === 1 && p.score >= 90 ? '⭐ Perfect' : 
-                               p.attempts === 1 && p.score >= 70 ? '✨ Excellent' :
-                               p.attempts <= 2 && p.score >= 70 ? '👍 Good' :
-                               p.attempts > 2 && p.score >= 70 ? '💪 Persistent' : '📚 Learning'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="footer-note">Top 10 participants with performance efficiency indicators.</div>
-                </div>
+
               </>
             )}
           </div>
